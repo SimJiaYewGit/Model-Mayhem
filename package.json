@@ -1,0 +1,29 @@
+{
+  "name": "agent-arena",
+  "version": "1.0.0",
+  "description": "AI Model Battler - Build your bot. Tune its mind. Watch it battle.",
+  "main": "server/index.js",
+  "scripts": {
+    "server": "node server/index.js",
+    "client": "npx serve client/public",
+    "start": "npm run server",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "game",
+    "battler",
+    "ollama"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^2.3.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "serve": "^14.2.6"
+  }
+}
