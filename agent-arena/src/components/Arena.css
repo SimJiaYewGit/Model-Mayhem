@@ -1,0 +1,259 @@
+.arena-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.arena-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.arena-header h3 {
+  font-size: 1.5rem;
+  color: #00d4ff;
+}
+
+.tick-counter {
+  background: rgba(0, 212, 255, 0.2);
+  color: #00d4ff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: bold;
+}
+
+.arena-board {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.agent-panel {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.agent-panel.player {
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+.agent-panel.enemy {
+  border-color: rgba(255, 82, 82, 0.3);
+}
+
+.agent-avatar {
+  margin-bottom: 1rem;
+}
+
+.harness-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.agent-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+}
+
+.agent-harness {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.stat-bar {
+  position: relative;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  margin: 0.8rem 0;
+  overflow: hidden;
+}
+
+.stat-label {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  font-weight: bold;
+  z-index: 2;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.stat-value {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  font-weight: bold;
+  z-index: 2;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.stat-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.hp-bar .stat-fill {
+  background: linear-gradient(90deg, #ff5252, #ff8a80);
+}
+
+.energy-bar .stat-fill {
+  background: linear-gradient(90deg, #00d4ff, #80deea);
+}
+
+.arena-visual {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.cell {
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.cell.player-pos {
+  background: rgba(0, 212, 255, 0.2);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+}
+
+.cell.enemy-pos {
+  background: rgba(255, 82, 82, 0.2);
+  box-shadow: 0 0 10px rgba(255, 82, 82, 0.4);
+}
+
+.agent-token {
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+.battle-log {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 1rem;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.battle-log h4 {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.log-entries {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.log-entry {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #ccc;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+  color: #fff;
+}
+
+.battle-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.battle-result {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  padding: 3rem;
+  border-radius: 16px;
+  text-align: center;
+  border: 2px solid rgba(0, 212, 255, 0.3);
+  box-shadow: 0 0 40px rgba(0, 212, 255, 0.2);
+}
+
+.battle-result h2 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.battle-result p {
+  color: #888;
+  font-size: 1.2rem;
+}
+
+.arena-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  font-size: 1.5rem;
+  color: #888;
+}
+
+@media (max-width: 900px) {
+  .arena-board {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid {
+    grid-template-columns: repeat(12, 1fr);
+    transform: scale(0.8);
+  }
+}
