@@ -144,12 +144,12 @@ class OllamaService {
   }
 
   /**
-   * Build the prompt for agent decision making
+   * Build the prompt for agent decision making (enhanced with items and hazards)
    */
   buildDecisionPrompt(gameState) {
     const { tick, self, enemy, arena } = gameState
 
-    return `You are in a turn-based arena battle. Analyze the situation and choose your next action.
+    let prompt = `You are in a turn-based arena battle. Analyze the situation and choose your next action.
 
 BATTLE STATE:
 - Tick: ${tick}
@@ -159,21 +159,68 @@ BATTLE STATE:
 - Enemy HP: ${enemy.hp}/${enemy.maxHp}
 - Enemy Position: (${enemy.position.x}, ${enemy.position.y})
 - Arena Size: ${arena.size}x${arena.size}
+`
 
+    // Add inventory info if available
+    if (self.inventory && self.inventory.length > 0) {
+      prompt += `\nYOUR INVENTORY:\n`
+      self.inventory.forEach((item, idx) => {
+        prompt += `- ${idx + 1}. ${item.name} (${item.effect}): ID=${item.id}\n`
+      })
+    }
+
+    // Add buff info
+    if (self.buffs) {
+      const buffs = []
+      if (self.buffs.damageBoost > 0) buffs.push(`Damage Boost (${self.buffs.damageBoost} turns)`)
+      if (self.buffs.speedBoost > 0) buffs.push(`Speed Boost (${self.buffs.speedBoost} turns)`)
+      if (self.buffs.shield > 0) buffs.push('Shield Active')
+      
+      if (buffs.length > 0) {
+        prompt += `\nACTIVE BUFFS: ${buffs.join(', ')}\n`
+      }
+    }
+
+    // Add nearby items
+    if (arena.nearbyItems && arena.nearbyItems.length > 0) {
+      prompt += `\nNEARBY ITEMS:\n`
+      arena.nearbyItems.forEach(item => {
+        prompt += `- ${item.type} at (${item.position.x}, ${item.position.y}) - Effect: ${item.effect}\n`
+      })
+    }
+
+    // Add nearby hazards
+    if (arena.nearbyHazards && arena.nearbyHazards.length > 0) {
+      prompt += `\nNEARBY HAZARDS:\n`
+      arena.nearbyHazards.forEach(hazard => {
+        prompt += `- ${hazard.type} at (${hazard.position.x}, ${hazard.position.y}) - ${hazard.description}\n`
+      })
+    }
+
+    // Add obstacles
+    if (arena.obstacles && arena.obstacles.length > 0) {
+      prompt += `\nOBSTACLES: ${arena.obstacles.map(o => `(${o.x}, ${o.y})`).join(', ')}\n`
+    }
+
+    prompt += `
 AVAILABLE ACTIONS:
 1. "attack" - Deal damage to enemy (costs 10 energy)
-2. "move" - Move one cell in a direction (up/down/left/right)
+2. "move" - Move one cell in a direction (up/down/left/right). With speed boost, move 2 cells.
 3. "defend" - Reduce incoming damage this turn (costs 5 energy)
 4. "charge" - Gain 15 energy (no movement)
+${self.inventory && self.inventory.length > 0 ? '5. "use_item" - Use an item from inventory (costs 5 energy). Include itemId in response.' : ''}
 
 Respond with ONLY a valid JSON object in this exact format:
 {
-  "action": "attack|move|defend|charge",
+  "action": "attack|move|defend|charge|use_item",
   "direction": "up|down|left|right|none",
+  "itemId": "item_id_here", // Only if using an item
   "reason": "brief explanation of your choice"
 }
 
 Do not include any other text. Only respond with the JSON.`
+
+    return prompt
   }
 
   /**
@@ -201,12 +248,13 @@ Do not include any other text. Only respond with the JSON.`
    * Validate and normalize action
    */
   validateAction(action) {
-    const validActions = ['attack', 'move', 'defend', 'charge']
+    const validActions = ['attack', 'move', 'defend', 'charge', 'use_item']
     const validDirections = ['up', 'down', 'left', 'right', 'none']
 
     const validatedAction = {
       action: validActions.includes(action.action) ? action.action : 'attack',
       direction: validDirections.includes(action.direction) ? action.direction : 'none',
+      itemId: action.itemId || null,
       reason: action.reason || 'No reason provided'
     }
 
