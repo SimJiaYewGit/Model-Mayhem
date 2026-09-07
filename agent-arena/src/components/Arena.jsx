@@ -9,9 +9,16 @@ import {
   areAdjacent,
   calculateDistance,
   DIRECTIONS,
-  ACTIONS
+  ACTIONS,
+  ARENAS,
+  ITEMS,
+  HAZARDS,
+  pickupItem,
+  applyHazardEffects,
+  getItemAtPosition
 } from '../game/engine'
 import { capitalize } from '../utils/helpers'
+import { Heart, Zap, Shield, AlertTriangle, Snowflake, Flame, Bomb, RefreshCw } from 'lucide-react'
 
 const ARENA_SIZE = 12
 const TICK_RATE = 1500 // 1.5 seconds per tick (allow time for LLM)
@@ -24,6 +31,20 @@ const HARNESS_STATS = {
   sniper: { speed: 5, defense: 3, energy: 8, maxHp: 70 }
 }
 
+const ITEM_ICONS = {
+  'health_pack': <Heart size={16} className="text-red-500" />,
+  'damage_boost': <Zap size={16} className="text-yellow-500" />,
+  'speed_boost': <Zap size={16} className="text-blue-500" />,
+  'shield': <Shield size={16} className="text-green-500" />,
+  'emp': <AlertTriangle size={16} className="text-purple-500" />
+}
+
+const HAZARD_ICONS = {
+  'lava': <Flame size={14} className="text-orange-600" />,
+  'ice': <Snowflake size={14} className="text-cyan-500" />,
+  'mine': <Bomb size={14} className="text-orange-700" />
+}
+
 function Arena({ playerConfig, onBattleEnd }) {
   const [gameState, setGameState] = useState('initializing')
   const [tick, setTick] = useState(0)
@@ -33,6 +54,9 @@ function Arena({ playerConfig, onBattleEnd }) {
   const [ollamaStatus, setOllamaStatus] = useState('checking')
   const [lastAction, setLastAction] = useState({ player: null, enemy: null })
   const [isProcessing, setIsProcessing] = useState(false)
+  const [arenaConfig, setArenaConfig] = useState(ARENAS.CLASSIC)
+  const [itemSpawns, setItemSpawns] = useState([])
+  const [hazards, setHazards] = useState([])
   const logRef = useRef(null)
 
   const addLog = (message) => {
@@ -54,12 +78,30 @@ function Arena({ playerConfig, onBattleEnd }) {
       const enemyHarnesses = ['scout', 'tank', 'assault', 'sniper']
       const enemyHarness = enemyHarnesses[Math.floor(Math.random() * enemyHarnesses.length)]
 
+      // Select random arena or use classic
+      const arenaKeys = Object.keys(ARENAS)
+      const selectedArena = ARENAS[arenaKeys[Math.floor(Math.random() * arenaKeys.length)]]
+      setArenaConfig(selectedArena)
+      
+      // Initialize item spawns
+      const initialItems = selectedArena.itemSpawns.map((spawn, index) => ({
+        id: `item_${index}`,
+        position: spawn.position,
+        type: Object.values(ITEMS)[Math.floor(Math.random() * Object.values(ITEMS).length)],
+        isTaken: false
+      }))
+      setItemSpawns(initialItems)
+      
+      // Initialize hazards
+      setHazards(selectedArena.hazards.map(h => ({ ...h, triggered: false })))
+
       const player = createAgent('Your Agent', playerConfig.harness, { x: 2, y: Math.floor(ARENA_SIZE / 2) })
       const enemy = createAgent(`Enemy ${capitalize(enemyHarness)}`, enemyHarness, { x: ARENA_SIZE - 3, y: Math.floor(ARENA_SIZE / 2) })
 
       setPlayerAgent(player)
       setEnemyAgent(enemy)
-      addLog(`⚔️ Battle initialized! Your ${playerConfig.harness} vs Enemy ${enemyHarness}`)
+      addLog(`⚔️ Battle initialized! ${selectedArena.name}`)
+      addLog(`🎒 Your ${playerConfig.harness} vs Enemy ${enemyHarness}`)
       setGameState('battling')
     }
 
@@ -106,8 +148,8 @@ function Arena({ playerConfig, onBattleEnd }) {
       let playerAction, enemyAction
       
       if (useLLM) {
-        // Get LLM-based action for player
-        const playerState = getBattleStateForLLM(newTick, playerAgent, enemyAgent, ARENA_SIZE)
+        // Get LLM-based action for player with enhanced state
+        const playerState = getBattleStateForLLM(newTick, playerAgent, enemyAgent, arenaConfig)
         const playerResult = await ollamaService.getAgentDecision(
           playerConfig.modelName,
           playerConfig.systemPrompt,
@@ -125,9 +167,32 @@ function Arena({ playerConfig, onBattleEnd }) {
       enemyAction = simulateAgentAction(enemyAgent, playerAgent, 'enemy')
 
       // Execute player action
-      const playerResult = executeAction(playerAction, playerAgent, enemyAgent, ARENA_SIZE)
+      const playerResult = executeAction(playerAction, playerAgent, enemyAgent, ARENA_SIZE, itemSpawns, hazards)
       if (playerResult.success) {
-        setPlayerAgent(playerResult.agent)
+        let newPlayerAgent = playerResult.agent
+        
+        // Check for item pickup
+        const itemAtPosition = getItemAtPosition(newPlayerAgent.position, itemSpawns)
+        if (itemAtPosition && !itemAtPosition.isTaken) {
+          const pickupResult = pickupItem(newPlayerAgent, itemAtPosition)
+          newPlayerAgent = pickupResult.agent
+          if (pickupResult.pickedUp) {
+            addLog(`📦 Picked up ${pickupResult.pickedUp.name}!`)
+            // Mark item as taken
+            setItemSpawns(prev => prev.map(item => 
+              item.id === itemAtPosition.id ? { ...item, isTaken: true } : item
+            ))
+          }
+        }
+        
+        // Apply hazard effects
+        const hazardResult = applyHazardEffects(newPlayerAgent, hazards)
+        newPlayerAgent = hazardResult.agent
+        if (hazardResult.logs.length > 0) {
+          hazardResult.logs.forEach(log => addLog(log))
+        }
+        
+        setPlayerAgent(newPlayerAgent)
         setEnemyAgent(playerResult.enemy)
         playerResult.log.forEach(log => addLog(log))
       }
@@ -141,9 +206,31 @@ function Arena({ playerConfig, onBattleEnd }) {
       }
 
       // Execute enemy action
-      const enemyResult = executeAction(enemyAction, playerResult.enemy, playerResult.agent, ARENA_SIZE)
+      const enemyResult = executeAction(enemyAction, playerResult.enemy, playerResult.agent, ARENA_SIZE, itemSpawns, hazards)
       if (enemyResult.success) {
-        setEnemyAgent(enemyResult.enemy)
+        let newEnemyAgent = enemyResult.enemy
+        
+        // Check for item pickup
+        const itemAtPosition = getItemAtPosition(newEnemyAgent.position, itemSpawns)
+        if (itemAtPosition && !itemAtPosition.isTaken) {
+          const pickupResult = pickupItem(newEnemyAgent, itemAtPosition)
+          newEnemyAgent = pickupResult.agent
+          if (pickupResult.pickedUp) {
+            addLog(`📦 Enemy picked up ${pickupResult.pickedUp.name}!`)
+            setItemSpawns(prev => prev.map(item => 
+              item.id === itemAtPosition.id ? { ...item, isTaken: true } : item
+            ))
+          }
+        }
+        
+        // Apply hazard effects
+        const hazardResult = applyHazardEffects(newEnemyAgent, hazards)
+        newEnemyAgent = hazardResult.agent
+        if (hazardResult.logs.length > 0) {
+          hazardResult.logs.forEach(log => addLog(log))
+        }
+        
+        setEnemyAgent(newEnemyAgent)
         setPlayerAgent(enemyResult.agent)
         enemyResult.log.forEach(log => addLog(log))
       }
@@ -271,6 +358,46 @@ function Arena({ playerConfig, onBattleEnd }) {
               Last: {lastAction.player.action} {lastAction.player.direction !== 'none' ? lastAction.player.direction : ''}
             </div>
           )}
+          
+          {/* Inventory display */}
+          {playerAgent.inventory && playerAgent.inventory.length > 0 && (
+            <div className="inventory-panel">
+              <div className="inventory-title">🎒 Items:</div>
+              <div className="inventory-list">
+                {playerAgent.inventory.map((item, idx) => (
+                  <span key={idx} className="inventory-item" title={item.description}>
+                    {ITEM_ICONS[item.id]}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Buff status */}
+          {(playerAgent.damageBoostActive || playerAgent.speedBoostActive || playerAgent.shieldActive || playerAgent.isSlowed) && (
+            <div className="buff-panel">
+              {playerAgent.damageBoostActive && (
+                <span className="buff-icon" title={`Damage Boost (${playerAgent.damageBoostDuration} turns)`}>
+                  <Zap size={14} className="text-yellow-500" /> {playerAgent.damageBoostDuration}
+                </span>
+              )}
+              {playerAgent.speedBoostActive && (
+                <span className="buff-icon" title={`Speed Boost (${playerAgent.speedBoostDuration} turns)`}>
+                  <RefreshCw size={14} className="text-blue-500" /> {playerAgent.speedBoostDuration}
+                </span>
+              )}
+              {playerAgent.shieldActive && (
+                <span className="buff-icon" title="Shield active">
+                  <Shield size={14} className="text-green-500" />
+                </span>
+              )}
+              {playerAgent.isSlowed && (
+                <span className="buff-icon debuff" title="Slowed by ice">
+                  <Snowflake size={14} className="text-cyan-500" />
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Arena visualization */}
@@ -283,11 +410,27 @@ function Arena({ playerConfig, onBattleEnd }) {
                 const distance = calculateDistance(playerAgent.position, enemyAgent.position)
                 const isInRange = distance <= 2
                 
+                // Check for item at this position
+                const itemAtPosition = itemSpawns.find(
+                  item => !item.isTaken && item.position.x === col && item.position.y === row
+                )
+                
+                // Check for hazard at this position
+                const hazardAtPosition = hazards.find(
+                  h => h.position.x === col && h.position.y === row
+                )
+                
                 return (
                   <div 
                     key={`${row}-${col}`} 
-                    className={`cell ${isPlayer ? 'player-pos' : ''} ${isEnemy ? 'enemy-pos' : ''} ${isInRange && (isPlayer || isEnemy) ? 'in-range' : ''}`}
+                    className={`cell ${isPlayer ? 'player-pos' : ''} ${isEnemy ? 'enemy-pos' : ''} ${isInRange && (isPlayer || isEnemy) ? 'in-range' : ''} ${hazardAtPosition ? `hazard-${hazardAtPosition.type}` : ''}`}
                   >
+                    {hazardAtPosition && !isPlayer && !isEnemy && (
+                      <span className="hazard-token">{HAZARD_ICONS[hazardAtPosition.type]}</span>
+                    )}
+                    {itemAtPosition && !isPlayer && !isEnemy && (
+                      <span className="item-token">{ITEM_ICONS[itemAtPosition.type.id]}</span>
+                    )}
                     {isPlayer && <span className="agent-token player-token">🔵</span>}
                     {isEnemy && <span className="agent-token enemy-token">🔴</span>}
                   </div>
@@ -297,6 +440,12 @@ function Arena({ playerConfig, onBattleEnd }) {
           </div>
           <div className="distance-indicator">
             Distance: {calculateDistance(playerAgent.position, enemyAgent.position)}
+          </div>
+          <div className="arena-info">
+            <span className="arena-name">{arenaConfig.name}</span>
+            {arenaConfig.description && (
+              <span className="arena-description">{arenaConfig.description}</span>
+            )}
           </div>
         </div>
 

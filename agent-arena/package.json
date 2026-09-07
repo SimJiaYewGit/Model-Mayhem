@@ -8,7 +8,13 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": ["ai", "llm", "game", "arena", "battler"],
+  "keywords": [
+    "ai",
+    "llm",
+    "game",
+    "arena",
+    "battler"
+  ],
   "author": "",
   "license": "MIT",
   "description": "AI Model Battler - Configure and battle local LLM agents",
@@ -17,5 +23,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "vite": "^8.2.2"
+  },
+  "dependencies": {
+    "lucide-react": "^1.42.0"
   }
 }
