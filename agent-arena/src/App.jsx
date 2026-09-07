@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import Arena from './components/Arena'
 import ModelConfig from './components/ModelConfig'
+import Workshop from './components/Workshop'
 import './App.css'
 
 function App() {
-  const [gameState, setGameState] = useState('menu') // menu, config, battle, results
+  const [gameState, setGameState] = useState('menu') // menu, config, battle, results, workshop
   const [playerConfig, setPlayerConfig] = useState({
     modelName: 'llama3.2:1b',
     systemPrompt: 'You are a tactical combat agent. Analyze the battlefield and make strategic decisions.',
@@ -32,6 +33,13 @@ function App() {
                 onClick={() => setGameState('config')}
               >
                 Start Battle
+              </button>
+              
+              <button 
+                className="btn-secondary"
+                onClick={() => setGameState('workshop')}
+              >
+                🧪 Agent Workshop
               </button>
               
               <div className="feature-list">
@@ -91,6 +99,12 @@ function App() {
               Main Menu
             </button>
           </div>
+        )}
+
+        {gameState === 'workshop' && (
+          <Workshop
+            onBack={() => setGameState('menu')}
+          />
         )}
       </main>
     </div>
